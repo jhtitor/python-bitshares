@@ -2,6 +2,7 @@ import shutil
 import time
 import os
 import sqlite3
+import json
 from .aes import AESCipher
 from appdirs import user_data_dir
 from datetime import datetime
@@ -120,6 +121,54 @@ class DataDir(object):
         self.sqlite3_backup(self.sqlDataBaseFile, backupdir)
         self.clean_data()
 
+    def exists_table(self):
+        """ Check if the database table exists
+        """
+        query = ("SELECT name FROM sqlite_master " +
+                 "WHERE type='table' AND name=?",
+                 (self.__tablename__, ))
+        table = self.sql_fetchone(query)
+        return True if table else False
+
+    def sql_fetchone(self, query):
+        connection = sqlite3.connect(self.sqlDataBaseFile)
+        cursor = connection.cursor()
+        cursor.execute(*query)
+        result = cursor.fetchone()
+        return result
+
+    def sql_fetchall(self, query):
+        connection = sqlite3.connect(self.sqlDataBaseFile)
+        cursor = connection.cursor()
+        cursor.execute(*query)
+        results = cursor.fetchall()
+        return results
+
+    def sql_execute(self, query, lastid=False):
+        connection = sqlite3.connect(self.sqlDataBaseFile)
+        cursor = connection.cursor()
+        cursor.execute(*query)
+        connection.commit()
+        if lastid:
+            cursor = connection.cursor()
+            cursor.execute("SELECT last_insert_rowid();")
+            result = cursor.fetchone()
+            return result[0]
+
+    def sql_todict(self, columns, rows, merge=None):
+        items = [ ]
+        for row in rows:
+            item = { }
+            for i, key in enumerate(columns):
+                item[key] = row[i]
+                #if key.endswith('_json'):
+                if merge and key in merge:
+                     data = json.loads(row[i])
+                     item[key] = data
+                     for mkey in merge[key]:
+                         item[mkey] = data[mkey]
+            items.append(item)
+        return items
 
 class Key(DataDir):
     """ This is the key storage that stores the public key and the
@@ -131,17 +180,6 @@ class Key(DataDir):
     def __init__(self, *args, **kwargs):
         super(Key, self).__init__(*args, **kwargs)
 
-    def exists_table(self):
-        """ Check if the database table exists
-        """
-        query = ("SELECT name FROM sqlite_master " +
-                 "WHERE type='table' AND name=?",
-                 (self.__tablename__, ))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        return True if cursor.fetchone() else False
-
     def create_table(self):
         """ Create the new table in the SQLite database
         """
@@ -149,20 +187,14 @@ class Key(DataDir):
                  'id INTEGER PRIMARY KEY AUTOINCREMENT,' +
                  'pub STRING(256),' +
                  'wif STRING(256)' +
-                 ')')
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(query)
-        connection.commit()
+                 ')',)
+        self.sql_execute(query)
 
     def getPublicKeys(self):
         """ Returns the public keys stored in the database
         """
-        query = ("SELECT pub from %s " % (self.__tablename__))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(query)
-        results = cursor.fetchall()
+        query = ("SELECT pub from %s " % (self.__tablename__),)
+        results = self.sql_fetchall(query)
         return [x[0] for x in results]
 
     def getPrivateKeyForPublicKey(self, pub):
@@ -176,10 +208,7 @@ class Key(DataDir):
         query = ("SELECT wif from %s " % (self.__tablename__) +
                  "WHERE pub=?",
                  (pub,))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        key = cursor.fetchone()
+        key = self.sql_fetchone(query)
         if key:
             return key[0]
         else:
@@ -194,10 +223,7 @@ class Key(DataDir):
         query = ("UPDATE %s " % self.__tablename__ +
                  "SET wif=? WHERE pub=?",
                  (wif, pub))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        connection.commit()
+        self.sql_execute(query)
 
     def add(self, wif, pub):
         """ Add a new public/private key pair (correspondence has to be
@@ -211,10 +237,7 @@ class Key(DataDir):
         query = ('INSERT INTO %s (pub, wif) ' % self.__tablename__ +
                  'VALUES (?, ?)',
                  (pub, wif))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        connection.commit()
+        self.sql_execute(query)
 
     def delete(self, pub):
         """ Delete the key identified as `pub`
@@ -224,10 +247,7 @@ class Key(DataDir):
         query = ("DELETE FROM %s " % (self.__tablename__) +
                  "WHERE pub=?",
                  (pub,))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        connection.commit()
+        self.sql_execute(query)
 
     def wipe(self, sure=False):
         """ Purge the entire wallet. No keys will survive this!
@@ -240,11 +260,8 @@ class Key(DataDir):
             )
             return
         else:
-            query = "DELETE FROM %s " % self.__tablename__
-            connection = sqlite3.connect(self.sqlDataBaseFile)
-            cursor = connection.cursor()
-            cursor.execute(query)
-            connection.commit()
+            query = ("DELETE FROM %s " % self.__tablename__,)
+            self.sql_execute(query)
 
 
 class Configuration(DataDir):
@@ -264,17 +281,6 @@ class Configuration(DataDir):
     def __init__(self, *args, **kwargs):
         super(Configuration, self).__init__(*args, **kwargs)
 
-    def exists_table(self):
-        """ Check if the database table exists
-        """
-        query = ("SELECT name FROM sqlite_master " +
-                 "WHERE type='table' AND name=?",
-                 (self.__tablename__, ))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        return True if cursor.fetchone() else False
-
     def create_table(self):
         """ Create the new table in the SQLite database
         """
@@ -282,11 +288,8 @@ class Configuration(DataDir):
                  'id INTEGER PRIMARY KEY AUTOINCREMENT,' +
                  'key STRING(256),' +
                  'value STRING(256)' +
-                 ')')
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(query)
-        connection.commit()
+                 ')',)
+        self.sql_execute(query)
 
     def checkBackup(self):
         """ Backup the SQL database every 7 days
@@ -326,10 +329,7 @@ class Configuration(DataDir):
                  "WHERE key=?",
                  (key,)
                  )
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        result = cursor.fetchone()
+        result = self.sql_fetchone(query)
         if result:
             return result[0]
         else:
@@ -361,10 +361,7 @@ class Configuration(DataDir):
             query = ("INSERT INTO %s " % self.__tablename__ +
                      "(key, value) VALUES (?, ?)",
                      (key, value))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        connection.commit()
+        self.sql_execute(query)
 
     def delete(self, key):
         """ Delete a key from the configuration store
@@ -372,10 +369,7 @@ class Configuration(DataDir):
         query = ("DELETE FROM %s " % (self.__tablename__) +
                  "WHERE key=?",
                  (key,))
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        connection.commit()
+        self.sql_execute(query)
 
     def __iter__(self):
         return iter(self.items())
