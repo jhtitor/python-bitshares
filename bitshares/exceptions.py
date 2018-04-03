@@ -130,3 +130,16 @@ class KeyNotFound(Exception):
     """ Key not found
     """
     pass
+
+class InsufficientBalance(Exception):
+    """ Insufficient Balance
+    """
+    pass
+
+class InsufficientBlindBalance(InsufficientBalance):
+    """ Insufficient Blind Balance
+    """
+    def __init__(self, *args, **kwargs):
+        self.input_adjust = kwargs.pop("input_adjust", 0)
+        self.asset_obj = kwargs.pop("asset_obj", None)
+        super(InsufficientBlindBalance, self).__init__(*args, **kwargs)

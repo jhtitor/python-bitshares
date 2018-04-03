@@ -488,6 +488,219 @@ class MasterPassword(object):
             self.configStorage.delete(MasterPassword.config_key)
 
 
+class BlindAccounts(DataDir):
+    """
+    """
+    __tablename__ = 'blindaccounts'
+
+    def __init__(self, *args, **kwargs):
+        super(BlindAccounts, self).__init__(*args, **kwargs)
+
+    def create_table(self):
+        """ Create the new table in the SQLite database
+        """
+        query = ('CREATE TABLE %s (' % self.__tablename__ +
+                 'id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+                 'label STRING(256),' +
+                 'pub STRING(256),' +
+                 'graphene_json TEXT,' +
+                 'balances_json TEXT,' +
+                 'keys INTEGER'
+                 ')', )
+        self.sql_execute(query)
+
+    def getAccounts(self):
+        """ Returns all blind accounts stored in the database
+        """
+        query = ("SELECT label, pub from %s " % (self.__tablename__), )
+        results = self.sql_fetchall(query)
+        return results
+
+    def getBy(self, key, some_id):
+        """
+        """
+        if key not in ['label', 'pub']:
+            raise KeyError("'key' must be label or pub")
+        query = ("SELECT graphene_json, balances_json, label, pub from %s " % (self.__tablename__) +
+                 "WHERE %s=?" % (key),
+                 (some_id, ))
+        connection = sqlite3.connect(self.sqlDataBaseFile)
+        cursor = connection.cursor()
+        cursor.execute(*query)
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        body = json.loads(row[0]) if row[0] else { }
+        body['balances'] = json.loads(row[1]) if row[1] else { }
+        body['label'] = row[2]
+        body['pub'] = row[3]
+        return body
+
+    def getByPublicKey(self, pub):
+        return self.getBy('pub', pub)
+
+    def getByLabel(self, label):
+        return self.getBy('label', label)
+
+    def update(self, pub, key, val):
+        """ Update blind account identified by `pub`lic key
+
+           :param str pub: Public key
+           :param str key: label, graphene_json or balances_json
+           :param val: value to set
+        """
+        if not(key in ['label', 'graphene_json', 'balances_json']):
+            raise ValueError("'key' must be graphene_json, balances_json or label")
+        query = ("UPDATE %s " % self.__tablename__ +
+                 ("SET %s=? WHERE pub=?" % key),
+                 (json.dumps(val) if key != "label" else val, pub))
+        self.sql_execute(query)
+
+    def add(self, pub, label, keys=1):
+        """ Add a blind account
+
+           :param str pub: Public key
+           :param str wif: Private key
+           :param str label: Account name
+        """
+        if self.getByPublicKey(pub):
+            raise ValueError("Account already in storage")
+        query = ('INSERT INTO %s (pub, label, keys) ' % self.__tablename__ +
+                 'VALUES (?, ?, ?)',
+                 (pub, label, keys))
+        self.sql_execute(query)
+
+    def delete(self, pub):
+        """ Delete the record identified by `pub`lic key
+
+           :param str pub: Public key
+        """
+        query = ("DELETE FROM %s " % (self.__tablename__) +
+                 "WHERE pub=?",
+                 (pub))
+        self.sql_execute(query)
+
+class BlindHistory(DataDir):
+    """ Store Blind Balances
+    """
+    __tablename__ = 'blindhistory'
+    __columns__ = [
+        'id', 'commitment', 'receipt',
+        'amount', 'asset_id', 'used',
+        'graphene_json', 'pub_from', 'pub_to',
+        'description', 'date'
+    ]
+    __jsonmerge__ = {
+        "graphene_json": [
+            "control_authority",
+            "blinding_factor",
+        ]
+    }
+
+    def __init__(self, *args, **kwargs):
+        super(BlindHistory, self).__init__(*args, **kwargs)
+
+    def create_table(self):
+        """ Create the new table in the SQLite database
+        """
+        query = ('CREATE TABLE %s (' % self.__tablename__ +
+                 'id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+                 'commitment STRING(512),' +
+                 'receipt STRING(512),' +
+                 'amount INTEGER,' +
+                 'asset_id STRING(16),' +
+                 'used INTEGER,' +
+                 'graphene_json TEXT,' +
+                # 'blinding_factor STRING(256),' +
+                 'pub_from STRING(256),' +
+                 'pub_to STRING(256),' +
+                 'description STRING(512),' +
+                 'date TEXT'
+                 ')', )
+        self.sql_execute(query)
+
+    def getEntriesBy(self, column_value_pairs, glue_and=True):
+        """ Returns all entries stored in the database
+        """
+        sql = ("SELECT * from %s WHERE " % self.__tablename__)
+        data = [ ]
+        sep = ""
+        for column, value in column_value_pairs:
+            sql += sep
+            sql += ("%s = ? " % column)
+            data.append( value )
+            sep = "AND " if glue_and else "OR "
+        query = (sql, data)
+        rows = self.sql_fetchall(query)
+        return self.sql_todict(self.__columns__, rows, self.__jsonmerge__)
+
+    def getEntry(self, commitment):
+        query = (("SELECT * from %s " % self.__tablename__) +
+            "WHERE commitment=?",
+            (commitment,)
+        )
+        row = self.sql_fetchone(query)
+        if not row:
+            return None
+        return self.sql_todict(self.__columns__, [row], self.__jsonmerge__)[0]
+
+    def add(self, commitment, balance):
+        """ Add an entry
+
+           :param str commitment: HEX commitment
+           :param dict balance: dict with usable values
+        """
+        if self.getEntry(commitment):
+            raise ValueError("Entry already in storage")
+
+        query = ('INSERT INTO %s (' % self.__tablename__ +
+                'commitment, receipt, pub_from, pub_to,'+
+                'amount, asset_id,'+
+                'graphene_json, used, description,'+
+                'date'+
+            ') ' +
+           'VALUES (?,?,?,?,  ?,?,  ?,?,?, datetime(CURRENT_TIMESTAMP) )',
+           (commitment, balance["receipt"], balance["from"], balance["to"],
+            balance["amount"], balance["asset_id"],
+            json.dumps(balance), int(balance["used"]), balance["description"],
+            ))
+        self.sql_execute(query)
+
+    def update(self, commitment, key, value):
+        if not(key in ['description']):
+            raise ValueError("'key' must description")
+        query = ("UPDATE %s " % self.__tablename__ +
+                 "SET %s=? WHERE commitment=?" % key,
+                 (value, commitment))
+        self.sql_execute(query)
+
+    def updateEntryUsed(self, commitment, used):
+        query = ("UPDATE %s " % self.__tablename__ +
+                 "SET used=? WHERE commitment=?",
+                 (int(used), commitment))
+        self.sql_execute(query)
+
+    def deleteBy(self, column, value):
+        """ Delete the record identified by `id`
+
+           :param int id: Internal db id
+        """
+        if not column in self.__columns__:
+            raise KeyError(column + " not a valid column")
+        query = ("DELETE FROM %s " % (self.__tablename__) +
+                 "WHERE %s=?" % (column),
+                 (value))
+        return self.sql_execute(query)
+
+    def delete(self, commitment):
+        """ Delete the record(s) identified by `commitment`
+           :param str commitment: Blind commitment
+        """
+        return self.deleteBy('commitment', commitment)
+
+
+
 
 class BitsharesStorage():
 
@@ -503,3 +716,12 @@ class BitsharesStorage():
 
         if not self.keyStorage.exists_table() and create:
             self.keyStorage.create_table()
+
+        # Additional tables
+        self.blindAccountStorage = BlindAccounts(path)
+        if not self.blindAccountStorage.exists_table() and create:
+            self.blindAccountStorage.create_table()
+
+        self.blindStorage = BlindHistory(path)
+        if not self.blindStorage.exists_table() and create:
+            self.blindStorage.create_table()

@@ -17,5 +17,6 @@ __all__ = [
     "committee",
     "vesting",
     "proposal",
-    "message"
+    "message",
+    "blind"
 ]

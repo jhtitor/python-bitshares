@@ -80,6 +80,7 @@ class Wallet():
             from .storage import MasterPassword
             self.MasterPassword = MasterPassword
             self.keyStorage = self.store.keyStorage
+            self.blindStorage = self.store.blindStorage
 
     @property
     def prefix(self):
@@ -419,3 +420,25 @@ class Wallet():
             )
             MasterPassword.wipe(sure)
             keyStorage.wipe(sure)
+
+    def storeBlindBalance(self, balance):
+        balance["control_authority"] = balance["control_authority"].json()
+        balance.pop("memodata")
+        balance.pop("confirmation")
+        return self.blindStorage.add(balance["commitment"], balance)
+
+    def getBlindBalance(self, commitment):
+        return self.blindStorage.getEntry(commitment)
+
+    def getBlindBalances(self, pub_to=None, asset_id=None, used=None):
+        query = [ ]
+        if asset_id:
+            query.append( ("asset_id", asset_id) )
+        if not(used is None):
+            query.append( ("used", int(used)) )
+        if pub_to:
+            query.append( ("pub_to", str(pub_to)) )
+        return self.blindStorage.getEntriesBy(query)
+
+    def modifyBlindBalance(self, commitment, used):
+        self.blindStorage.updateEntryUsed(commitment, used)

@@ -3,6 +3,7 @@ from collections import OrderedDict
 from graphenebase.types import (
     Uint8, Int16, Uint16, Uint32, Uint64,
     Varint32, Int64, String, Bytes, Void,
+    Fixed_Bytes,
     Array, PointInTime, Signature, Bool,
     Set, Fixed_array, Optional, Static_variant,
     Map, Id, VoteId,
@@ -78,6 +79,15 @@ class Asset(GrapheneObject):
                 ('amount', Int64(kwargs["amount"])),
                 ('asset_id', ObjectId(kwargs["asset_id"], "asset"))
             ]))
+
+    @staticmethod
+    def _readwire(d):
+        amount,   d = Int64._readwire(d)
+        asset_id, d = ObjectId._readwire(d, "1.3.")
+        return Asset({
+            "amount":  amount.data,
+            "asset_id": asset_id.Id
+        }), d
 
 
 class Memo(GrapheneObject):
@@ -369,5 +379,102 @@ class AccountCreateExtensions(Extension):
                 )
             else:
                 raise NotImplementedError("Extension {} is unknown".format(key))
+
+        super().__init__(a)
+
+
+class Blind_input(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+
+            super().__init__(OrderedDict([
+                ('commitment', Fixed_Bytes(kwargs["commitment"])),
+                ('owner', Permission(kwargs["owner"])),
+            ]))
+
+class Blind_output(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+            #if "stealth_memo" in kwargs and kwargs["stealth_memo"]:
+            #    memo = Optional(Stealth_confirmation(kwargs["stealth_memo"]))
+            #else:
+            #    memo = Optional(None)
+            super().__init__(OrderedDict([
+                ('commitment', Fixed_Bytes(kwargs["commitment"])),
+                ('range_proof', Bytes(kwargs["range_proof"])), # could be empty
+                ('owner', Permission(kwargs["owner"])),
+                ('stealth_memo', Optional(None)), #memo)),
+            ]))
+
+class Stealth_Confirmation(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+            self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+            if "to" in kwargs and kwargs["to"]:
+                to = Optional(PublicKey(kwargs["to"]))
+            else:
+                to = Optional(None)
+            super().__init__(OrderedDict([
+                ('one_time_key', PublicKey(kwargs["one_time_key"])),
+                ('to', to),
+                ('encrypted_memo', Bytes(kwargs["encrypted_memo"])),
+            ]))
+
+    @staticmethod
+    def _readwire(d, prefix="BTS"):
+        one_time_key,   d = PublicKey._readwire(d, prefix=prefix)
+        to,             d = Optional._readwire(d, PublicKey, prefix=prefix)
+        encrypted_memo, d = Bytes._readwire(d)
+        return Stealth_Confirmation({
+            "one_time_key": str(one_time_key),
+            "to": str(to.data) if to.data else None,
+            "encrypted_memo": encrypted_memo.data,
+        }), d
+
+class Stealth_Confirmation_MemoData(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+            self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+            if "from" in kwargs and kwargs["from"]:
+                _from = Optional( PublicKey(kwargs["from"]) )
+            else:
+                _from = Optional( None )
+            super().__init__(OrderedDict([
+                ('from', _from),
+                ('amount', Asset(kwargs["amount"])),
+                ('blinding_factor', Fixed_Bytes(kwargs["blinding_factor"])),
+                ('commitment', Fixed_Bytes(kwargs["commitment"])),
+                ('check', Uint32(kwargs["check"])),
+            ]))
+
+    @staticmethod
+    def _readwire(d):
+        _from,           d = Optional._readwire(d, PublicKey, prefix="BTS")
+        amount,          d = Asset._readwire(d)
+        blinding_factor, d = Fixed_Bytes._readwire(d, 32)
+        commitment,      d = Fixed_Bytes._readwire(d, 33)
+        check,           d = Uint32._readwire(d)
+        return Stealth_Confirmation_MemoData({
+            "from": str(_from.data) if _from.data else None,
+            "amount": amount,
+            "blinding_factor": blinding_factor.data,
+            "commitment": commitment.data,
+            "check": check.data,
+        }), d
+
 
         super().__init__(a)

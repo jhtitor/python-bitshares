@@ -3,6 +3,7 @@ import json
 from graphenebase.types import (
     Uint8, Int16, Uint16, Uint32, Uint64,
     Varint32, Int64, String, Bytes, Void,
+    Fixed_Bytes,
     Array, PointInTime, Signature, Bool,
     Set, Fixed_array, Optional, Static_variant,
     Map, Id, VoteId
@@ -23,7 +24,9 @@ from .objects import (
     ObjectId,
     Worker_initializer,
     SpecialAuthority,
-    AccountCreateExtensions
+    AccountCreateExtensions,
+    Blind_input,
+    Blind_output
 )
 
 default_prefix = "BTS"
@@ -78,6 +81,62 @@ class Transfer(GrapheneObject):
                 ('amount', Asset(kwargs["amount"])),
                 ('memo', memo),
                 ('extensions', Set([])),
+            ]))
+
+
+class Transfer_to_blind(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+
+            kwargs["outputs"] = sorted(kwargs["outputs"], key=lambda x: x["commitment"])
+
+            super().__init__(OrderedDict([
+                ('fee', Asset(kwargs["fee"])), # switch places?
+                ('amount', Asset(kwargs["amount"])), # total of all outputs
+                ('from', ObjectId(kwargs["from"], "account")),
+                ('blinding_factor', Fixed_Bytes(kwargs["blinding_factor"]) ),
+                ('outputs', Array([Blind_output(o) for o in kwargs["outputs"]])),
+            ]))
+
+class Transfer_from_blind(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+            super().__init__(OrderedDict([
+                ('fee', Asset(kwargs["fee"])),
+                ('amount', Asset(kwargs["amount"])), # total of all outputs
+                ('to', ObjectId(kwargs["to"], "account")),
+                ('blinding_factor', Fixed_Bytes(kwargs["blinding_factor"])),
+                ('inputs', Array([Blind_input(o) for o in kwargs["inputs"]])),
+            ]))
+
+class Blind_transfer(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+
+            def get_commitment(x):
+                try:
+                    return x.json()["commitment"]
+                except:
+                    return x["commitment"]
+            kwargs["inputs"] = sorted(kwargs["inputs"], key=get_commitment) #lambda x: x.json()["commitment"])
+            kwargs["outputs"] = sorted(kwargs["outputs"], key=get_commitment) #lambda x: x["commitment"])
+
+            super().__init__(OrderedDict([
+                ('fee', Asset(kwargs["fee"])),
+                ('inputs', Array([Blind_input(o) for o in kwargs["inputs"]])),
+                ('outputs', Array([Blind_output(o) for o in kwargs["outputs"]])),
             ]))
 
 
