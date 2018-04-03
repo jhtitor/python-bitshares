@@ -158,7 +158,11 @@ class BitShares(object):
         # txbuffers/propbuffer are initialized and cleared
         self.clear()
 
-        self.wallet = Wallet(bitshares_instance=self, **kwargs)
+        reuse_wallet = kwargs.pop("wallet", False)
+        if reuse_wallet or (reuse_wallet is None):
+            self.wallet = reuse_wallet
+        else:
+            self.wallet = Wallet(storage=self.store, **kwargs)
 
     # -------------------------------------------------------------------------
     # Basic Calls
