@@ -119,6 +119,19 @@ class PublicKey(GPHPublicKey):
             kwargs["prefix"] = "BTS"  # make prefix BTS
         super(PublicKey, self).__init__(*args, **kwargs)
 
+    def child(self, offset256):
+        a = bytes(self) + offset256
+        s = hashlib.sha256(a).digest()
+        return self.add(s)
+
+    def add(self, digest256):
+        from secp256k1 import PublicKey as SPublicKey
+        tmp_key = SPublicKey(pubkey=bytes(self), raw=True)
+        new_key = tmp_key.tweak_add(digest256)
+        raw_key = hexlify(new_key.serialize()).decode('ascii')
+
+        return PublicKey(raw_key, prefix=self.prefix)
+
 
 class PrivateKey(GPHPrivateKey):
     """ Derives the compressed and uncompressed public keys and
