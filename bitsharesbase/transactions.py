@@ -38,8 +38,13 @@ def addRequiredFees(ws, ops, asset_id="1.3.0"):
                         asset_id=fees[i][1][j]["asset_id"]))
         else:
             # Operation is a regular operation
+            preset = ops[i].op.data["fee"].json()["asset_id"]
+            if preset and preset != asset_id:
+                _fee = ws.get_required_fees([d.json()], preset)[0]
+            else:
+                _fee = fees[i]
             ops[i].op.data["fee"] = Asset(
-                amount=fees[i]["amount"],
-                asset_id=fees[i]["asset_id"]
+                amount=_fee["amount"],
+                asset_id=_fee["asset_id"]
             )
     return ops
