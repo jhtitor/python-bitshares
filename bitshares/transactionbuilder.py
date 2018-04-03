@@ -205,18 +205,16 @@ class TransactionBuilder(dict):
             self.ops.append(ops)
         self._set_require_reconstruction()
 
-    def appendSigner(self, account, permission):
+    def appendSigner(self, account, permission, lazy=False):
         """ Try to obtain the wif key from the wallet by telling which account
             and permission is supposed to sign the transaction
         """
         assert permission in ["active", "owner"], "Invalid permission"
-        account = Account(account, bitshares_instance=self.bitshares)
-        required_treshold = account[permission]["weight_threshold"]
 
         if self.bitshares.wallet.locked():
             raise WalletLocked()
 
-        def fetchkeys(account, perm, level=0):
+        def fetchkeys(account, perm, required_treshold, level=0):
             if level > 2:
                 return []
             r = []
@@ -246,10 +244,13 @@ class TransactionBuilder(dict):
                     )
                 )
             else:
-                account = Account(account, bitshares_instance=self.bitshares)
-                required_treshold = account[permission]["weight_threshold"]
-                keys = fetchkeys(account, permission)
-                if permission != "owner":
+                if isinstance(account, Account) and lazy:
+                    account = account
+                else:
+                    account = Account(account, bitshares_instance=self.bitshares)
+                required_threshold = account[permission]["weight_threshold"]
+                keys = fetchkeys(account, permission, required_threshold)
+                if permission != "owner" and len(keys) < 1:
                     keys.extend(fetchkeys(account, "owner"))
                 for x in keys:
                     self.wifs.add(x[0])
@@ -401,22 +402,26 @@ class TransactionBuilder(dict):
         self["expiration"] = None
         super(TransactionBuilder, self).__init__({})
 
-    def addSigningInformation(self, account, permission):
+    def addSigningInformation(self, account, permission, lazy=False):
         """ This is a private method that adds side information to a
             unsigned/partial transaction in order to simplify later
             signing (e.g. for multisig or coldstorage)
 
             FIXME: Does not work with owner keys!
         """
-        self.constructTx()
-        self["blockchain"] = self.bitshares.rpc.chain_params
+        if not lazy:
+            self.constructTx()
+            self["blockchain"] = self.bitshares.rpc.chain_params
 
         if isinstance(account, PublicKey):
             self["missing_signatures"] = [
                 str(account)
             ]
         else:
-            accountObj = Account(account)
+            if isinstance(account, Account) and lazy:
+                accountObj = account
+            else:
+                accountObj = Account(account, bitshares_instance=self.bitshares)
             authority = accountObj[permission]
             # We add a required_authorities to be able to identify
             # how to sign later. This is an array, because we
