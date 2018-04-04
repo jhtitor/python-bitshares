@@ -186,7 +186,8 @@ class BitShares(object):
         if not rpcpassword and "rpcpassword" in self.config:
             rpcpassword = self.config["rpcpassword"]
 
-        self.rpc = BitSharesNodeRPC(node, rpcuser, rpcpassword, **kwargs)
+        rpcKlass = kwargs.pop("node_class", BitSharesNodeRPC)
+        self.rpc = rpcKlass(node, rpcuser, rpcpassword, **kwargs)
 
     def is_connected(self):
         return bool(self.rpc)
