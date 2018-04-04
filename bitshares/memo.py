@@ -79,11 +79,14 @@ class Memo(object):
         if not memo_wif:
             raise MissingKeyError("Memo key for %s missing!" % self.from_account["name"])
 
+        if not hasattr(self, 'chain_prefix'):
+            self.chain_prefix = self.bitshares.prefix
+
         enc = BtsMemo.encode_memo(
             PrivateKey(memo_wif),
             PublicKey(
                 self.to_account["options"]["memo_key"],
-                prefix=self.bitshares.prefix
+                prefix=self.chain_prefix
             ),
             nonce,
             memo
@@ -126,9 +129,12 @@ class Memo(object):
                     "Need any of {}".format(
                     [memo["to"], memo["from"]]))
 
+        if not hasattr(self, 'chain_prefix'):
+            self.chain_prefix = self.bitshares.prefix
+
         return BtsMemo.decode_memo(
             PrivateKey(memo_wif),
-            PublicKey(pubkey, prefix=self.bitshares.prefix),
+            PublicKey(pubkey, prefix=self.chain_prefix),
             memo.get("nonce"),
             memo.get("message")
         )
