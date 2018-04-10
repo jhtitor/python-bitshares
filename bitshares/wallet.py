@@ -414,12 +414,8 @@ class Wallet():
             )
             return
         else:
-            from .storage import (
-                keyStorage,
-                MasterPassword
-            )
-            MasterPassword.wipe(sure)
-            keyStorage.wipe(sure)
+            self.MasterPassword.wipe(sure)
+            self.keyStorage.wipe(sure)
 
     def storeBlindBalance(self, balance):
         balance["control_authority"] = balance["control_authority"].json()

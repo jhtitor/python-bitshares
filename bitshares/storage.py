@@ -704,7 +704,10 @@ class BlindHistory(DataDir):
 
 class BitsharesStorage():
 
-    def __init__(self, path, create=True):
+    def __init__(self, path=None, create=True):
+        # Pick path from appdirs
+        if path is None:
+            path = DataDir.preflight(filename=True)
 
         # Create keyStorage
         self.keyStorage = Key(path, mustexist = not(create))
