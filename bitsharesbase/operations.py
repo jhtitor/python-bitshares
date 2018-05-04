@@ -30,6 +30,30 @@ from .objects import (
 )
 
 default_prefix = "BTS"
+class_idmap = {}
+class_namemap = {}
+
+
+def fill_classmaps():
+    for name, ind in operations.items():
+        classname = name[0:1].upper() + name[1:]
+        class_namemap[classname] = ind
+        try:
+            class_idmap[ind] = globals()[classname]
+        except Exception:
+            continue
+
+
+def getOperationClassForId(op_id):
+    """ Convert an operation id into the corresponding class
+    """
+    return class_idmap[op_id] if op_id in class_idmap else None
+
+
+def getOperationIdForClass(name):
+    """ Convert an operation classname into the corresponding id
+    """
+    return class_namemap[name] if name in class_namemap else None
 
 class_idmap = { }
 class_namemap = { }
