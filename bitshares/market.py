@@ -242,7 +242,7 @@ class Market(dict):
         data = {"asks": asks, "bids": bids}
         return data
 
-    def trades(self, limit=25, start=None, stop=None, raw=False):
+    def trades(self, limit=25, start=None, stop=None):
         """ Returns your trade history for a given market.
 
             :param int limit: Limit the amount of orders (default: 25)
@@ -262,8 +262,6 @@ class Market(dict):
             formatTime(stop),
             formatTime(start),
             limit)
-        if raw:
-            return orders
         return list(map(
             lambda x: FilledOrder(
                 x,
