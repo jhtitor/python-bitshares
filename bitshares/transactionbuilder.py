@@ -23,10 +23,9 @@ class ProposalBuilder:
             supposed to expire
         :param int proposal_review: Number of seconds for review of the
             proposal
-        :param bitshares.transactionbuilder.TransactionBuilder: Specify
+        :param .transactionbuilder.TransactionBuilder: Specify
             your own instance of transaction builder (optional)
-        :param bitshares.bitshares.BitShares blockchain_instance: BitShares
-            instance
+        :param instance blockchain_instance: Blockchain instance
     """
     def __init__(
         self,
@@ -134,7 +133,6 @@ class TransactionBuilder(dict):
         self,
         tx={},
         proposer=None,
-        expiration=None,
         **kwargs
     ):
         BlockchainInstance.__init__(self, **kwargs)
@@ -146,8 +144,8 @@ class TransactionBuilder(dict):
             self._require_reconstruction = False
         else:
             self._require_reconstruction = True
-        self.set_expiration(expiration)
-        self.fee_asset_id = "1.3.0"
+            self.set_fee_asset(kwargs.get("fee_asset", None))
+        self.set_expiration(kwargs.get("expiration", self.blockchain.expiration)) or 30
 
     def set_expiration(self, p):
         self.expiration = p
@@ -216,6 +214,7 @@ class TransactionBuilder(dict):
         if self.blockchain.wallet.locked():
             raise WalletLocked()
 
+        # Let's define a helper function for recursion
         def fetchkeys(account, perm, required_treshold, level=0):
             if level > 2:
                 return []
@@ -237,6 +236,7 @@ class TransactionBuilder(dict):
 
             return r
 
+        # Now let's actually deal with the accounts
         if account not in self.signing_accounts:
             # is the account an instance of public key?
             if isinstance(account, PublicKey):
@@ -245,6 +245,7 @@ class TransactionBuilder(dict):
                         str(account)
                     )
                 )
+            # ... or should we rather obtain the keys from an account name
             else:
                 if isinstance(account, Account) and lazy:
                     account = account
@@ -252,7 +253,9 @@ class TransactionBuilder(dict):
                     account = Account(account, blockchain_instance=self.blockchain)
                 required_threshold = account[permission]["weight_threshold"]
                 keys = fetchkeys(account, permission, required_threshold)
-                if permission != "owner" and len(keys) < 1:
+                # If we couldn't find an active key, let's try overwrite it
+                # with an owner key
+                if not keys and permission != "owner":
                     keys.extend(fetchkeys(account, "owner"))
                 for x in keys:
                     self.wifs.add(x[0])
@@ -272,7 +275,13 @@ class TransactionBuilder(dict):
     def set_fee_asset(self, fee_asset):
         """ Set asset to fee
         """
-        self.fee_asset_id = fee_asset.identifier
+        from .amount import Amount
+        if isinstance(fee_asset, Amount):
+            self.fee_asset_id = fee_asset["id"]
+        elif fee_asset:
+            self.fee_asset_id = fee_asset
+        else:
+            self.fee_asset_id = "1.3.0"
 
     def constructTx(self):
         """ Construct the actual transaction and store it in the class's dict
@@ -361,7 +370,7 @@ class TransactionBuilder(dict):
             raise e
 
     def broadcast(self):
-        """ Broadcast a transaction to the bitshares network
+        """ Broadcast a transaction to the blockchain network
 
             :param tx tx: Signed transaction to broadcast
         """
@@ -384,7 +393,7 @@ class TransactionBuilder(dict):
             if self.blockchain.blocking:
                 ret = self.blockchain.rpc.broadcast_transaction_synchronous(
                     ret, api="network_broadcast")
-                ret.update(**ret["trx"])
+                ret.update(**ret.get("trx"))
             else:
                 self.blockchain.rpc.broadcast_transaction(
                     ret, api="network_broadcast")
@@ -433,7 +442,7 @@ class TransactionBuilder(dict):
                 accountObj["name"]: authority
             }})
             for account_auth in authority["account_auths"]:
-                account_auth_account = Account(account_auth[0], blockchain_instance=self.blockchain)
+                account_auth_account = Account(account_auth[0])
                 self["required_authorities"].update({
                     account_auth[0]: account_auth_account.get(permission)
                 })
@@ -444,7 +453,7 @@ class TransactionBuilder(dict):
             ]
             # Add one recursion of keys from account_auths:
             for account_auth in authority["account_auths"]:
-                account_auth_account = Account(account_auth[0], blockchain_instance=self.blockchain)
+                account_auth_account = Account(account_auth[0])
                 self["missing_signatures"].extend(
                     [x[0]
                      for x in account_auth_account[permission]["key_auths"]]

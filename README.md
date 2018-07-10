@@ -5,6 +5,7 @@
 ![](https://img.shields.io/github/downloads/xeroc/python-bitshares/total.svg?style=for-the-badge)
 ![](https://img.shields.io/pypi/pyversions/bitshares.svg?style=for-the-badge)
 ![](https://img.shields.io/pypi/l/bitshares.svg?style=for-the-badge)
+![](https://cla-assistant.io/readme/badge/bitshares/python-bitshares)
 
 **Stable**
 
@@ -43,3 +44,19 @@ $ python3 setup.py install --user
 ```
 $ pip3 install --user --upgrade
 ```
+
+## Contributing
+
+python-bitshares welcomes contributions from anyone and everyone. Please
+see our [guidelines for contributing](CONTRIBUTING.md) and the [code of
+conduct](CODE_OF_CONDUCT.md).
+
+### Discussion and Developers
+
+Discussions around development and use of this library can be found in a
+[dedicated Telegram Channel](https://t.me/pybitshares)
+
+### License
+
+A copy of the license is available in the repository's
+[LICENSE](LICENSE.txt) file.

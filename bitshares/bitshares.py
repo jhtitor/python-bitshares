@@ -126,7 +126,7 @@ class BitShares(object):
         self.unsigned = bool(kwargs.get("unsigned", False))
         self.expiration = int(kwargs.get("expiration", 30))
         self.bundle = bool(kwargs.get("bundle", False))
-        self.blocking = kwargs.get("blocking", False)
+        self.blocking = bool(kwargs.get("blocking", False))
 
         # Legacy Proposal attributes
         self.proposer = kwargs.get("proposer", None)
@@ -201,6 +201,12 @@ class BitShares(object):
         Account(account)
         self.config["default_account"] = account
 
+    def set_blocking(self, block=True):
+        """ This sets a flag that forces the broadcast to block until the
+            transactions made it into a block
+        """
+        self.blocking = block
+
     def finalizeOp(self, ops, account, permission, **kwargs):
         """ This method obtains the required private keys if present in
             the wallet, finalizes the transaction, signs it and
@@ -232,12 +238,6 @@ class BitShares(object):
                 :class:`bitshares.transactionbuilder.TransactionBuilder`.
                 You may want to use your own txbuffer
         """
-        if "fee_asset" in kwargs:
-            fee_asset = kwargs["fee_asset"]
-            assert isinstance(fee_asset, Asset)
-        else:
-            fee_asset = None
-
         if "append_to" in kwargs and kwargs["append_to"]:
             if self.proposer:
                 log.warn(
@@ -250,17 +250,11 @@ class BitShares(object):
             assert isinstance(append_to, (TransactionBuilder, ProposalBuilder))
             append_to.appendOps(ops)
             # Add the signer to the buffer so we sign the tx properly
-
             if isinstance(append_to, ProposalBuilder):
                 parent.appendSigner(append_to.proposer, permission)
             else:
                 parent.appendSigner(account, permission)
             # This returns as we used append_to, it does NOT broadcast, or sign
-
-            # Set asset to fee
-            if fee_asset and isinstance(append_to, TransactionBuilder):
-                append_to.set_fee_asset(fee_asset)
-
             return append_to.get_parent()
         elif self.proposer:
             # Legacy proposer mode!
@@ -270,17 +264,16 @@ class BitShares(object):
             proposal.set_review(self.proposal_review)
             proposal.appendOps(ops)
             # Go forward to see what the other options do ...
-
-            # Set asset to fee
-            if fee_asset and isinstance(proposal, TransactionBuilder):
-                proposal.set_fee_asset(fee_asset)
         else:
             # Append tot he default buffer
             self.txbuffer.appendOps(ops)
 
-            # Set asset to fee
-            if fee_asset and isinstance(self.txbuffer, TransactionBuilder):
-                self.txbuffer.set_fee_asset(fee_asset)
+        # The API that obtains the fee only allows to specify one particular
+        # fee asset for all operations in that transaction even though the
+        # blockchain itself could allow to pay multiple operations with
+        # different fee assets.
+        if "fee_asset" in kwargs and kwargs["fee_asset"]:
+            self.txbuffer.set_fee_asset(kwargs["fee_asset"])
 
         # Add signing information, signer, sign and optionally broadcast
         if self.unsigned:
@@ -322,7 +315,8 @@ class BitShares(object):
         """
         if tx:
             # If tx is provided, we broadcast the tx
-            return TransactionBuilder(tx).broadcast()
+            return TransactionBuilder(
+                tx, blockchain_instance=self).broadcast()
         else:
             return self.txbuffer.broadcast()
 
@@ -400,7 +394,8 @@ class BitShares(object):
         parent=None,
         proposer=None,
         proposal_expiration=None,
-        proposal_review=None
+        proposal_review=None,
+        **kwargs
     ):
         if not parent:
             parent = self.tx()
@@ -420,7 +415,8 @@ class BitShares(object):
             proposal_expiration,
             proposal_review,
             blockchain_instance=self,
-            parent=parent
+            parent=parent,
+            **kwargs
         )
         if parent:
             parent.appendOps(proposal)
@@ -904,6 +900,7 @@ class BitShares(object):
             lambda x: float(x.split(":")[0]) == 1,
             options["votes"]
         )))
+        options["voting_account"] = "1.2.5"  # Account("proxy-to-self")["id"]
 
         op = operations.Account_update(**{
             "fee": {"amount": 0, "asset_id": "1.3.0"},
@@ -942,6 +939,7 @@ class BitShares(object):
             lambda x: float(x.split(":")[0]) == 1,
             options["votes"]
         )))
+        options["voting_account"] = "1.2.5"  # Account("proxy-to-self")["id"]
 
         op = operations.Account_update(**{
             "fee": {"amount": 0, "asset_id": "1.3.0"},
@@ -979,6 +977,7 @@ class BitShares(object):
             lambda x: float(x.split(":")[0]) == 0,
             options["votes"]
         )))
+        options["voting_account"] = "1.2.5"  # Account("proxy-to-self")["id"]
 
         op = operations.Account_update(**{
             "fee": {"amount": 0, "asset_id": "1.3.0"},
@@ -1017,6 +1016,7 @@ class BitShares(object):
             lambda x: float(x.split(":")[0]) == 0,
             options["votes"]
         )))
+        options["voting_account"] = "1.2.5"  # Account("proxy-to-self")["id"]
 
         op = operations.Account_update(**{
             "fee": {"amount": 0, "asset_id": "1.3.0"},
@@ -1135,6 +1135,7 @@ class BitShares(object):
             worker = Worker(worker, blockchain_instance=self)
             options["votes"].append(worker["vote_for"])
         options["votes"] = list(set(options["votes"]))
+        options["voting_account"] = "1.2.5"  # Account("proxy-to-self")["id"]
 
         op = operations.Account_update(**{
             "fee": {"amount": 0, "asset_id": "1.3.0"},
@@ -1168,6 +1169,39 @@ class BitShares(object):
             if worker["vote_for"] in options["votes"]:
                 options["votes"].remove(worker["vote_for"])
         options["votes"] = list(set(options["votes"]))
+        options["voting_account"] = "1.2.5"  # Account("proxy-to-self")["id"]
+
+        op = operations.Account_update(**{
+            "fee": {"amount": 0, "asset_id": "1.3.0"},
+            "account": account["id"],
+            "new_options": options,
+            "extensions": {},
+            "prefix": self.prefix
+        })
+        return self.finalizeOp(op, account["name"], "active", **kwargs)
+
+    def unset_proxy(self, account=None, **kwargs):
+        """ Unset the proxy account to start voting yourself
+        """
+        return self.set_proxy("proxy-to-self", account=account, **kwargs)
+
+    def set_proxy(self, proxy_account, account=None, **kwargs):
+        """ Set a specific proxy for account
+
+            :param bitshares.account.Account proxy_account: Account to be
+                    proxied
+            :param str account: (optional) the account to allow access
+                to (defaults to ``default_account``)
+        """
+        if not account:
+            if "default_account" in config:
+                account = config["default_account"]
+        if not account:
+            raise ValueError("You need to provide an account")
+        account = Account(account, blockchain_instance=self)
+        proxy = Account(proxy_account, blockchain_instance=self)
+        options = account["options"]
+        options["voting_account"] = proxy["id"]
 
         op = operations.Account_update(**{
             "fee": {"amount": 0, "asset_id": "1.3.0"},
@@ -1442,7 +1476,7 @@ class BitShares(object):
         """
         from bitsharesbase.transactions import timeformat
         assert isinstance(daily_pay, Amount)
-        assert daily_pay["symbol"] == "BTS"
+        assert daily_pay["asset"]["id"] == "1.3.0"
         if not begin:
             begin = datetime.utcnow() + timedelta(seconds=30)
         if not account:
@@ -1490,7 +1524,7 @@ class BitShares(object):
                 account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
-        amount = Amount(amount, symbol, blockchain_instance=self)
+        amount = Amount(amount, "1.3.0", blockchain_instance=self)
         account = Account(account, blockchain_instance=self)
         asset = Asset(symbol, blockchain_instance=self)
         op = operations.Asset_fund_fee_pool(**{
