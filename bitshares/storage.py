@@ -372,9 +372,11 @@ class Configuration(DataDir):
         self.sql_execute(query)
 
     def wipe(self):
-        """ Delete all keys from the configuration store
+        """ Delete all configuration from the configuration store
         """
-        query = ("DELETE FROM %s " % (self.__tablename__), ())
+        query = ("DELETE FROM %s " % (self.__tablename__) +
+                 "WHERE key<>?",
+                 (MasterPassword.config_key,))
         self.sql_execute(query)
 
     def __iter__(self):
