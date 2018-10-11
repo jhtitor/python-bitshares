@@ -197,6 +197,19 @@ class Key(DataDir):
         results = self.sql_fetchall(query)
         return [x[0] for x in results]
 
+    def existsPrivateKey(self, pub):
+        """ Return 1 or 0 """
+        query = ("SELECT COUNT(id) from %s " % (self.__tablename__) +
+                 "WHERE pub=?", (pub,))
+        result = self.sql_fetchone(query)
+        return result[0]
+
+    def countPrivateKeys(self, pubs):
+        total = 0
+        for pub in pubs:
+            total += self.existsPrivateKey(pub)
+        return total
+
     def getPrivateKeyForPublicKey(self, pub):
         """ Returns the (possibly encrypted) private key that
             corresponds to a public key
