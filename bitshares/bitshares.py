@@ -136,10 +136,10 @@ class BitShares(object):
         self.proposal_review = int(kwargs.get("proposal_review", 0))
 
         # Store self.config for access through other Classes
-        self.config = kwargs.get(
-            "config_store",
-            get_default_config_store()
-        )
+        if "config_store" in kwargs:
+            self.config = kwargs["config_store"]
+        else:
+            self.config = get_default_config_store()
 
         if not self.offline:
             self.connect(node=node,

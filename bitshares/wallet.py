@@ -3,6 +3,7 @@ import os
 from graphenebase import bip38
 from bitsharesbase.account import PrivateKey
 from .storage import get_default_key_store, InRamPlainKeyStore
+from .storage import get_default_blind_store
 from .instance import BlockchainInstance
 from .account import Account
 from .exceptions import (
@@ -56,18 +57,16 @@ class Wallet():
             self.key_store = InRamPlainKeyStore()
             self.setKeys(kwargs["keys"])
         else:
-            self.key_store = kwargs.get(
-                "key_store",
-                get_default_key_store(
-                    config=self.blockchain.config,
+            if 'key_store' in kwargs:
+                self.key_store = kwargs["key_store"]
+            else:
+                self.key_store = get_default_key_store(
+                    config=self.blockchain.config
                 )
-            )
 
         self.blind_store = kwargs.get(
             "blind_store",
-            get_default_blind_store(
-                config=self.blockchain.config,
-            )
+            get_default_blind_store()
         )
 
 
