@@ -582,8 +582,8 @@ class BlindAccounts(DataDir):
         """ Add a blind account
 
            :param str pub: Public key
-           :param str wif: Private key
            :param str label: Account name
+           :param int keys: Number of keys
         """
         if self.getByPublicKey(pub):
             raise ValueError("Account already in storage")
@@ -599,7 +599,7 @@ class BlindAccounts(DataDir):
         """
         query = ("DELETE FROM %s " % (self.__tablename__) +
                  "WHERE pub=?",
-                 (pub))
+                 (pub,))
         self.sql_execute(query)
 
 class BlindHistory(DataDir):
@@ -743,9 +743,9 @@ class CommonStorage():
 
         # Additional tables
         self.blindAccountStorage = BlindAccounts(path)
-        if not self.blindAccountStorage.exists_table() and create:
+        if not self.blindAccountStorage.exists_table():
             self.blindAccountStorage.create_table()
 
         self.blindStorage = BlindHistory(path)
-        if not self.blindStorage.exists_table() and create:
+        if not self.blindStorage.exists_table():
             self.blindStorage.create_table()
