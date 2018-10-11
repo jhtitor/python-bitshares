@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from bitsharesapi.bitsharesnoderpc import BitSharesNodeRPC
 from bitsharesbase.account import PublicKey
 from bitsharesbase import operations
+from .storage import get_default_config_store
 from .instance import set_shared_blockchain_instance, shared_blockchain_instance
 from .asset import Asset
 from .account import Account
@@ -13,7 +14,6 @@ from .witness import Witness
 from .committee import Committee
 from .vesting import Vesting
 from .worker import Worker
-from .storage import CommonStorage, Configuration
 from .exceptions import (
     AccountExistsException,
 )
@@ -135,19 +135,11 @@ class BitShares(object):
             kwargs.get("proposal_expiration", 60 * 60 * 24))
         self.proposal_review = int(kwargs.get("proposal_review", 0))
 
-        # Store config and storage for access through other Classes
-        self.wallet_path = kwargs.get("wallet_path", None)
-        reuse_storage = kwargs.pop("storage", None)
-        if reuse_storage:
-            self.store = reuse_storage
-            self.config = self.store.configStorage
-        elif not(self.wallet_path):
-            self.config = dict(Configuration.config_defaults)
-            self.store = None
-        else:
-            self.store  = CommonStorage(path=self.wallet_path);
-            self.config = self.store.configStorage
-
+        # Store self.config for access through other Classes
+        self.config = kwargs.get(
+            "config_store",
+            get_default_config_store()
+        )
 
         if not self.offline:
             self.connect(node=node,
@@ -567,8 +559,8 @@ class BitShares(object):
                 the blockchain
 
         """
-        if not registrar and config["default_account"]:
-            registrar = config["default_account"]
+        if not registrar and self.config["default_account"]:
+            registrar = self.config["default_account"]
         if not registrar:
             raise ValueError(
                 "Not registrar account given. Define it with " +
@@ -1211,8 +1203,8 @@ class BitShares(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, blockchain_instance=self)

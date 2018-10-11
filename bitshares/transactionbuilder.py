@@ -229,9 +229,15 @@ class TransactionBuilder(dict):
                     # Try obtain the private key from wallet
                     wif = self.blockchain.wallet.getPrivateKeyForPublicKey(
                         authority[0])
+                except Exception as e:
+                    continue
+
+                if wif:
                     r.append([wif, authority[1]])
-                except Exception:
-                    pass
+                    # If we found a key for account, we add it
+                    # to signing_accounts to be sure we do not resign
+                    # another operation with the same account/wif
+                    self.signing_accounts.append(account)
 
                 # Test if we reached threshold already
                 if sum([x[1] for x in r]) >= required_treshold:
@@ -258,7 +264,7 @@ class TransactionBuilder(dict):
         if account not in self.signing_accounts:
             # is the account an instance of public key?
             if isinstance(account, PublicKey):
-                self.wifs.add(
+                self.appendWif(
                     self.blockchain.wallet.getPrivateKeyForPublicKey(
                         str(account)
                     )
@@ -266,17 +272,18 @@ class TransactionBuilder(dict):
             # ... or should we rather obtain the keys from an account name
             else:
                 if isinstance(account, Account) and lazy:
-                    account = account
+                    accountObj = account
                 else:
-                    account = Account(account, blockchain_instance=self.blockchain)
-                required_threshold = account[permission]["weight_threshold"]
-                keys = fetchkeys(account, permission, required_treshold=required_treshold)
+                    accountObj = Account(account, blockchain_instance=self.blockchain)
+                required_treshold = accountObj[permission]["weight_threshold"]
+                keys = fetchkeys(accountObj, permission, required_treshold=required_treshold)
+
                 # If we couldn't find an active key, let's try overwrite it
                 # with an owner key
                 if not keys and permission != "owner":
-                    keys.extend(fetchkeys(account, "owner", required_treshold=required_treshold))
+                    keys.extend(fetchkeys(accountObj, "owner", required_treshold=required_treshold))
                 for x in keys:
-                    self.wifs.add(x[0])
+                    self.appendWif(x[0])
 
             self.signing_accounts.append(account)
 
@@ -323,7 +330,7 @@ class TransactionBuilder(dict):
         ops = transactions.addRequiredFees(self.blockchain.rpc, ops,
                                            asset_id=self.fee_asset_id)
         expiration = transactions.formatTimeFromNow(
-            self.expiration or self.blockchain.expiration
+            self.expiration or self.blockchain.expiration or 30  # defaults to 30 seconds
         )
         ref_block_num, ref_block_prefix = transactions.getBlockParams(
             self.blockchain.rpc)
@@ -413,7 +420,7 @@ class TransactionBuilder(dict):
             if self.blockchain.blocking:
                 ret = self.blockchain.rpc.broadcast_transaction_synchronous(
                     ret, api="network_broadcast")
-                ret.update(**ret.get("trx"))
+                ret.update(**ret.get("trx", {}))
             else:
                 self.blockchain.rpc.broadcast_transaction(
                     ret, api="network_broadcast")

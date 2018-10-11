@@ -11,19 +11,20 @@ except LookupError:
     ascii = codecs.lookup('ascii')
     codecs.register(lambda name, enc=ascii: {True: enc}.get(name == 'mbcs'))
 
-VERSION = '0.1.19'
+VERSION = '0.2.0rc2'
+URL = "https://github.com/bitshares/python-bitshares"
 
 setup(
     name='bitshares',
     version=VERSION,
     description='Python library for bitshares',
     long_description=open('README.md').read(),
-    download_url='https://github.com/bitshares/python-bitshares/tarball/' + VERSION,
+    download_url='{}/tarball/{}'.format(URL, VERSION),
     author='Fabian Schuh',
     author_email='Fabian@chainsquad.com',
     maintainer='Fabian Schuh',
     maintainer_email='Fabian@chainsquad.com',
-    url='http://www.github.com/bitshares/python-bitshares',
+    url=URL,
     keywords=['bitshares', 'library', 'api', 'rpc'],
     packages=[
         "bitshares",
@@ -39,14 +40,7 @@ setup(
         'Intended Audience :: Financial and Insurance Industry',
         'Topic :: Office/Business :: Financial',
     ],
-    install_requires=[
-        "graphenelib>=0.6.3",
-        "websockets",
-        "appdirs",
-        "Events",
-        "scrypt",
-        "pycryptodome",  # for AES, installed through graphenelib already
-    ],
+    install_requires=open("requirements.txt").readlines(),
     setup_requires=['pytest-runner'],
     tests_require=['pytest'],
     include_package_data=True,
