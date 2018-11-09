@@ -154,7 +154,7 @@ class BitShares(object):
         if reuse_wallet or (reuse_wallet is None):
             self.wallet = reuse_wallet
         else:
-            self.wallet = Wallet(storage=self.store, blockchain_instance=self, **kwargs)
+            self.wallet = Wallet(blockchain_instance=self, **kwargs)
 
     # -------------------------------------------------------------------------
     # Basic Calls

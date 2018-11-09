@@ -27,11 +27,11 @@ class Testcases(unittest.TestCase):
         ])
         self.assertIn(
             str(wif1.pubkey),
-            wallet.store.getPublicKeys()
+            wallet.key_store.getPublicKeys()
         )
         self.assertIn(
             str(wif2.pubkey),
-            wallet.store.getPublicKeys()
+            wallet.key_store.getPublicKeys()
         )
         self.assertEqual(
             wallet.getPrivateKeyForPublicKey(
@@ -48,7 +48,7 @@ class Testcases(unittest.TestCase):
         # wallet.unlock("")
         # wallet.lock()
         # is unlocked because InRamKeyStore and not encrypted
-        self.assertFalse(wallet.store.is_encrypted())
+        self.assertFalse(wallet.key_store.is_encrypted())
         self.assertFalse(wallet.is_encrypted())
         self.assertTrue(wallet.unlocked())
         self.assertFalse(wallet.locked())
@@ -57,7 +57,7 @@ class Testcases(unittest.TestCase):
         wallet.addPrivateKey(wif3)
         self.assertIn(
             str(wif3.pubkey),
-            wallet.store.getPublicKeys()
+            wallet.key_store.getPublicKeys()
         )
         self.assertEqual(
             wallet.getPrivateKeyForPublicKey(
