@@ -5,12 +5,10 @@ from graphenestorage import (
     SqliteConfigurationStore,
     SqlitePlainKeyStore,
     SqliteEncryptedKeyStore,
-    SQLiteFile
+    SQLiteFile, SQLiteCommon
 )
 
-import sqlite3
-
-class SQLiteExtendedStore(SQLiteFile):
+class SQLiteExtendedStore(SQLiteFile, SQLiteCommon):
     """ The SQLiteExtendedStore deals with the sqlite3 part of storing data into a
         database file.
 
@@ -43,6 +41,8 @@ class SQLiteExtendedStore(SQLiteFile):
             )
         if not self.exists():  # pragma: no cover
             self.create()
+        else:
+            self.upgrade()
 
     def __len__(self):
         """ return lenght of store
@@ -65,32 +65,28 @@ class SQLiteExtendedStore(SQLiteFile):
         return True if self.sql_fetchone(query) else False
 
     def create(self):  # pragma: no cover
-        raise Exception("Create method was not implemented.")
+        """ Create new database table.
+            This MUST be implemented by inheriting classes.
+        """
+        raise NotImplementedError
 
-    def sql_fetchone(self, query):
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        result = cursor.fetchone()
-        return result
+    def upgrade(self):
+        """ Upgrade the database table, if needed
+        """
+        pass
 
-    def sql_fetchall(self, query):
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        results = cursor.fetchall()
-        return results
+    def deleteBy(self, column, value):
+        """ Delete the record identified by `column` = `value`
 
-    def sql_execute(self, query, lastid=False):
-        connection = sqlite3.connect(self.sqlDataBaseFile)
-        cursor = connection.cursor()
-        cursor.execute(*query)
-        connection.commit()
-        if lastid:
-            cursor = connection.cursor()
-            cursor.execute("SELECT last_insert_rowid();")
-            result = cursor.fetchone()
-            return result[0]
+           :param str column: Name of the column
+           :param str value: Value
+        """
+        if not column in self.__columns__:
+            raise KeyError(column + " not a valid column")
+        query = ("DELETE FROM {} ".format(self.__tablename__) +
+                 "WHERE {}=?".format(column),
+                 (value,))
+        return self.sql_execute(query)
 
     def sql_todict(self, columns, rows, merge=None):
         items = [ ]
@@ -135,21 +131,6 @@ class SqliteBlindHistoryStore(
         super(SqliteBlindHistoryStore, self).__init__(*args, **kwargs)
 
     def create(self):
-        self.init_table()
-
-    def exists_table(self):
-        return self.exists()
-
-    def upgrade_table(self):
-        pass
-
-    def init_table(self):
-        if self.exists_table():
-            self.upgrade_table()
-        else:
-            self.create_table()
-
-    def create_table(self):
         """ Create the new table in the SQLite database
         """
         query = ('CREATE TABLE %s (' % self.__tablename__ +
