@@ -47,8 +47,8 @@ class SQLiteExtendedStore(SQLiteFile, SQLiteCommon):
     def __len__(self):
         """ return lenght of store
         """
-        query = ("SELECT id from {}".format(self.__tablename__))
-        return len(self.sql_fetchall(query))
+        query = ("SELECT COUNT({}) from {}".format(self.__columns__[0], self.__tablename__), )
+        return self.sql_fetchone(query)[0]
 
     def wipe(self):
         """ Wipe the store
