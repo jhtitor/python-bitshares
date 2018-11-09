@@ -385,13 +385,13 @@ def receive_blind_transfer(wallet, confirmation_receipt, opt_from="", opt_memo="
     try:
         wallet.storeBlindBalance(balance)
         ok += 1
-    except BaseException as e:
+    except Exception as e:
         #print(e)
         pass
     try:
         wallet.addPrivateKey(child_wif)
         ok += 1
-    except BaseException as e:
+    except Exception as e:
         #print(e)
         pass
 

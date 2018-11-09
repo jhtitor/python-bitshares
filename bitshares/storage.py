@@ -210,20 +210,9 @@ class SqliteBlindHistoryStore(
                  (int(used), commitment))
         self.sql_execute(query)
 
-    def deleteBy(self, column, value):
-        """ Delete the record identified by `id`
-
-           :param int id: Internal db id
-        """
-        if not column in self.__columns__:
-            raise KeyError(column + " not a valid column")
-        query = ("DELETE FROM %s " % (self.__tablename__) +
-                 "WHERE %s=?" % (column),
-                 (value))
-        return self.sql_execute(query)
-
     def delete(self, commitment):
         """ Delete the record(s) identified by `commitment`
+
            :param str commitment: Blind commitment
         """
         return self.deleteBy('commitment', commitment)
