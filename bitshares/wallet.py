@@ -64,10 +64,10 @@ class Wallet():
                     config=self.blockchain.config
                 )
 
-        self.blind_store = kwargs.get(
-            "blind_store",
-            get_default_blind_store()
-        )
+        if "blind_store" in kwargs:
+            self.blind_store = kwargs["blind_store"]
+        else:
+            self.blind_store = get_default_blind_store()
 
 
     @property

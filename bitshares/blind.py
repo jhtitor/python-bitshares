@@ -176,6 +176,11 @@ def create_blind_account(brain_key_str):
     bk = BrainKey(brain_key_str)
     return bk.get_blind_private()
 
+from bitshares.fee import LocalFee
+def calculate_fee(bitshares_instance, op, asset_obj=None, opclass=None):
+    if asset_obj:
+        op["fee"] = { "amount": 0, "asset_id": asset_obj["id"] }
+    return LocalFee(op, opclass=opclass, blockchain_instance=bitshares_instance).json()
 
 def transfer_to_blind(bitshares_instance, from_account_id_or_name, base_outputs, symbol, broadcast=False, fee_asset_id="1.3.0", debug_priv=None):
     bts = bitshares_instance
@@ -414,8 +419,8 @@ def transfer_from_blind(bitshares_instance,
 
     from_blind = { }
     #d = Transfer_from_blind(**from_blind)
-    #from_blind["fee"] = ws.get_required_fees([[d.json()]], asset_obj["id"])[0]
-    from_blind["fee"] = bts.calculate_fee(from_blind, asset_obj["options"]["core_exchange_rate"], opclass=Transfer_from_blind)
+    #from_blind["fee"] = ws.get_required_fees([[41,d.json()]], asset_obj["id"])[0]
+    from_blind["fee"] = calculate_fee(bts, from_blind, asset_obj, opclass=Transfer_from_blind)
 
     blind_in = { "amount": from_blind["fee"]["amount"] + in_amount["amount"], "asset_id": asset_obj["id"] }
 
@@ -488,7 +493,7 @@ def match_blind_input_outputs(bitshares_instance, amount_in, asset_obj, inputs, 
     blind_tr["outputs"] = [ None ] * num_outputs
     blind_tr["fee"] = { "amount": 0, "asset_id": asset_obj["id"] }
 
-    blind_tr["fee"] = bts.calculate_fee(blind_tr, asset_obj["options"]["core_exchange_rate"], opclass=Blind_transfer)
+    blind_tr["fee"] = calculate_fee(bts, blind_tr, asset_obj, opclass=Blind_transfer)
 
     def test_eq(a, b):
         return a == b

@@ -107,6 +107,11 @@ class Transfer(GrapheneObject):
                 ('extensions', Set([])),
             ]))
 
+    def fee_bytes(self):
+        if "memo" in self:
+            return len(bytes(self["memo"]))
+        return 0
+
 
 class Transfer_to_blind(GrapheneObject):
     def __init__(self, *args, **kwargs):
