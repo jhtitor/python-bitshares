@@ -1,15 +1,11 @@
 from graphenestorage.exceptions import WrongMasterPasswordException
+from graphenestorage.exceptions import WalletLocked
+from graphenestorage.exceptions import KeyAlreadyInStoreException
 
 
 class WalletExists(Exception):
     """ A wallet has already been created and requires a password to be
         unlocked by means of :func:`bitshares.wallet.unlock`.
-    """
-    pass
-
-
-class WalletLocked(Exception):
-    """ Wallet is locked
     """
     pass
 
@@ -140,10 +136,6 @@ class WrongMemoKey(Exception):
     """
     pass
 
-class KeyAlreadyInStoreException(Exception):
-    """ The key is already stored in the store
-    """
-    pass
 
 class InsufficientBalance(Exception):
     """ Insufficient Balance
