@@ -321,7 +321,7 @@ def open_receipt(wallet, confirmation_receipt, description=""):
 
     receipt = unhexlify( b58decode(confirmation_receipt) )
 
-    conf = Stealth_Confirmation._readwire(receipt)[0].data
+    conf = Stealth_Confirmation.fromBytes(receipt)[0].data
 
     to_priv_key = wallet.getPrivateKeyForPublicKey(str(conf["to"].data))
     if not to_priv_key:
@@ -337,7 +337,7 @@ def open_receipt(wallet, confirmation_receipt, description=""):
     plain_memo = aes_decrypt( _hex(secret512), cipher )
 
     try:
-        memo = Stealth_Confirmation_MemoData._readwire(plain_memo)[0].data
+        memo = Stealth_Confirmation_MemoData.fromBytes(plain_memo)[0].data
     except:
         raise ValueError("Unable to read decrypted data")
 

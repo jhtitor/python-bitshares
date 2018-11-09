@@ -53,9 +53,9 @@ class Asset(GrapheneObject):
             ]))
 
     @staticmethod
-    def _readwire(d):
-        amount,   d = Int64._readwire(d)
-        asset_id, d = ObjectId._readwire(d, "1.3.")
+    def fromBytes(d):
+        amount,   d = Int64.fromBytes(d)
+        asset_id, d = ObjectId.fromBytes(d, "1.3.")
         return Asset({
             "amount":  amount.data,
             "asset_id": asset_id.Id
@@ -361,7 +361,7 @@ class Blind_input(GrapheneObject):
                 kwargs = args[0]
 
             super().__init__(OrderedDict([
-                ('commitment', Fixed_Bytes(kwargs["commitment"])),
+                ('commitment', Fixed_Bytes(kwargs["commitment"], 33)),
                 ('owner', Permission(kwargs["owner"])),
             ]))
 
@@ -377,7 +377,7 @@ class Blind_output(GrapheneObject):
             #else:
             #    memo = Optional(None)
             super().__init__(OrderedDict([
-                ('commitment', Fixed_Bytes(kwargs["commitment"])),
+                ('commitment', Fixed_Bytes(kwargs["commitment"], 33)),
                 ('range_proof', Bytes(kwargs["range_proof"])), # could be empty
                 ('owner', Permission(kwargs["owner"])),
                 ('stealth_memo', Optional(None)), #memo)),
@@ -401,10 +401,10 @@ class Stealth_Confirmation(GrapheneObject):
             ]))
 
     @staticmethod
-    def _readwire(d, prefix="BTS"):
-        one_time_key,   d = PublicKey._readwire(d, prefix=prefix)
-        to,             d = Optional._readwire(d, PublicKey, prefix=prefix)
-        encrypted_memo, d = Bytes._readwire(d)
+    def fromBytes(d, prefix="BTS"):
+        one_time_key,   d = PublicKey.fromBytes(d, prefix=prefix)
+        to,             d = Optional.fromBytes(d, PublicKey, prefix=prefix)
+        encrypted_memo, d = Bytes.fromBytes(d)
         return Stealth_Confirmation({
             "one_time_key": str(one_time_key),
             "to": str(to.data) if to.data else None,
@@ -425,18 +425,18 @@ class Stealth_Confirmation_MemoData(GrapheneObject):
             super().__init__(OrderedDict([
                 ('from', _from),
                 ('amount', Asset(kwargs["amount"])),
-                ('blinding_factor', Fixed_Bytes(kwargs["blinding_factor"])),
-                ('commitment', Fixed_Bytes(kwargs["commitment"])),
+                ('blinding_factor', Fixed_Bytes(kwargs["blinding_factor"], 32)),
+                ('commitment', Fixed_Bytes(kwargs["commitment"], 33)),
                 ('check', Uint32(kwargs["check"])),
             ]))
 
     @staticmethod
-    def _readwire(d):
-        _from,           d = Optional._readwire(d, PublicKey, prefix="BTS")
-        amount,          d = Asset._readwire(d)
-        blinding_factor, d = Fixed_Bytes._readwire(d, 32)
-        commitment,      d = Fixed_Bytes._readwire(d, 33)
-        check,           d = Uint32._readwire(d)
+    def fromBytes(d):
+        _from,           d = Optional.fromBytes(d, PublicKey, prefix="BTS")
+        amount,          d = Asset.fromBytes(d)
+        blinding_factor, d = Fixed_Bytes.fromBytes(d, 32)
+        commitment,      d = Fixed_Bytes.fromBytes(d, 33)
+        check,           d = Uint32.fromBytes(d)
         return Stealth_Confirmation_MemoData({
             "from": str(_from.data) if _from.data else None,
             "amount": amount,
