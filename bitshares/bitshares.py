@@ -266,7 +266,7 @@ class BitShares(object):
         # blockchain itself could allow to pay multiple operations with
         # different fee assets.
         if "fee_asset" in kwargs and kwargs["fee_asset"]:
-            self.txbuffer.set_fee_asset(kwargs["fee_asset"])
+            self.txbuffer.set_fee_asset(kwargs["fee_asset"], force=True)
 
         # Add signing information, signer, sign and optionally broadcast
         if self.unsigned:

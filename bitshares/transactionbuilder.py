@@ -297,7 +297,7 @@ class TransactionBuilder(dict):
             except:
                 raise InvalidWifError
 
-    def set_fee_asset(self, fee_asset):
+    def set_fee_asset(self, fee_asset, force=False):
         """ Set asset to fee
         """
         from .amount import Amount
@@ -309,6 +309,13 @@ class TransactionBuilder(dict):
             self.fee_asset_id = fee_asset
         else:
             self.fee_asset_id = "1.3.0"
+        if force:
+            for op in self.ops:
+                if isinstance(op, ProposalBuilder):
+                    continue
+                op["fee"]["asset_id"] = self.fee_asset_id
+            self._set_require_reconstruction()
+
 
     def constructTx(self):
         """ Construct the actual transaction and store it in the class's dict
