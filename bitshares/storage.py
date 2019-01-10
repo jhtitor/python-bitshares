@@ -107,6 +107,7 @@ class SQLiteExtendedStore(SQLiteFile, SQLiteCommon):
 class BlindCommitmentsInterface(object):
     pass
 
+import json
 class SqliteBlindHistoryStore(
     SQLiteExtendedStore,
     BlindCommitmentsInterface

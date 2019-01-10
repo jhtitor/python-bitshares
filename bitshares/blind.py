@@ -1,10 +1,7 @@
 import logging
 log = logging.getLogger(__name__)
 
-try:
-    from Crypto.Cipher import AES
-except ImportError:
-    raise ImportError("Missing dependency: pycrypto")
+from bitshares.aes import AES
 
 try:
     import secp256k1prp as secp256k1
@@ -22,7 +19,7 @@ def _pad(s, BS):
     return s + numBytes * struct.pack('B', numBytes)
 
 def _unpad(s, BS):
-    count = int(s[-1]) #int(struct.unpack('B', bytes(ls[0])))
+    count = int(s[-1])
     if s[-count::] == count * struct.pack('B', count):
         return s[:-count]
     return s
@@ -376,6 +373,8 @@ def open_receipt(wallet, confirmation_receipt, description=""):
 
 def receive_blind_transfer(wallet, confirmation_receipt, opt_from="", opt_memo=""):
     log.info("Attempting to receive blind transfer %s" % (confirmation_receipt))
+    # for a good measure
+    print("Attempting to receive blind transfer %s" % (confirmation_receipt))
 
     balance, child_priv_key = open_receipt(wallet, confirmation_receipt, opt_memo)
 
@@ -388,8 +387,12 @@ def receive_blind_transfer(wallet, confirmation_receipt, opt_from="", opt_memo="
     except Exception as e:
         #print(e)
         pass
+
+    from .exceptions import KeyAlreadyInStoreException
     try:
         wallet.addPrivateKey(child_wif)
+        ok += 1
+    except KeyAlreadyInStoreException: # ok, it's fine
         ok += 1
     except Exception as e:
         #print(e)
@@ -692,6 +695,13 @@ def blind_transfer_help( bitshares_instance,
         ts = float(ca["weight_threshold"])
         for key, weight in ca["key_auths"]:
             from_wif = wallet.getPrivateKeyForPublicKey(key)
+            if not from_wif:
+                try:
+                    _, child_wif = open_receipt(wallet, input_balance["receipt"], input_balance["description"])
+                    from_wif = str(child_wif)
+                except:
+                    log.exception("Couldn't find child key for receipt %s", input_balance["receipt"])
+                    pass
             if from_wif:
                 blconfirm["trx"].appendWif(from_wif)
 
