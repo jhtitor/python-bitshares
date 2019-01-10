@@ -75,6 +75,20 @@ class SQLiteExtendedStore(SQLiteFile, SQLiteCommon):
         """
         pass
 
+    def column_exists(self, colname):
+        query = ("SELECT %s FROM %s LIMIT 1" % (colname, self.__tablename__), ())
+        try:
+            self.sql_fetchall(query)
+        except:
+            return False
+        return True
+
+    def add_column(self, colname, sqltype):
+        if self.column_exists(colname): return
+        query = ("ALTER TABLE %s ADD COLUMN %s %s" %
+                 (self.__tablename__, colname, sqltype), )
+        self.sql_execute(query)
+
     def deleteBy(self, column, value):
         """ Delete the record identified by `column` = `value`
 
