@@ -132,7 +132,8 @@ class SqliteBlindHistoryStore(
     __columns__ = [
         'id', 'commitment', 'receipt',
         'amount', 'asset_id', 'used',
-        'graphene_json', 'pub_from', 'pub_to',
+        'graphene_json',
+        'pub_from', 'pub_to', 'pub_child',
         'description', 'date'
     ]
     __jsonmerge__ = {
@@ -159,10 +160,14 @@ class SqliteBlindHistoryStore(
                 # 'blinding_factor STRING(256),' +
                  'pub_from STRING(256),' +
                  'pub_to STRING(256),' +
+                 'pub_child STRING(256),' +
                  'description STRING(512),' +
                  'date TEXT'
                  ')', )
         self.sql_execute(query)
+
+    def upgrade(self):
+        self.add_column("pub_child", "STRING(256)")
 
     def getEntriesBy(self, column_value_pairs, glue_and=True):
         """ Returns all entries stored in the database
@@ -198,15 +203,20 @@ class SqliteBlindHistoryStore(
         if self.getEntry(commitment):
             raise ValueError("Entry already in storage")
 
+        try:
+            pub_child = balance["control_authority"]["key_auths"][0][0]
+        except:
+            pub_child = ""
+
         query = ('INSERT INTO %s (' % self.__tablename__ +
                 'commitment, receipt, pub_from, pub_to,'+
-                'amount, asset_id,'+
+                'amount, asset_id, pub_child,'+
                 'graphene_json, used, description,'+
                 'date'+
             ') ' +
-           'VALUES (?,?,?,?,  ?,?,  ?,?,?, datetime(CURRENT_TIMESTAMP) )',
+           'VALUES (?,?,?,?,  ?,?,?,  ?,?,?, datetime(CURRENT_TIMESTAMP) )',
            (commitment, balance["receipt"], balance["from"], balance["to"],
-            balance["amount"], balance["asset_id"],
+            balance["amount"], balance["asset_id"], pub_child,
             json.dumps(balance), int(balance["used"]), balance["description"],
             ))
         self.sql_execute(query)
