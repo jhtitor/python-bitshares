@@ -212,10 +212,13 @@ def transfer_to_blind(bitshares_instance, from_account_id_or_name, base_outputs,
 
     return confirm
 
-def try_to_receive_blind_transfers(wallet, balances, opt_from, throw=False):
-    for balance in balances:
+def try_to_receive_blind_transfers(wallet, balances, opt_from, to_temp=False, throw=False):
+    for i, balance in enumerate(balances):
+        is_temp = False
+        if to_temp and i == len(balances) - 1:
+            is_temp = True
         try:
-            receive_blind_transfer(wallet, balance["receipt"], opt_from, balance["description"] )
+            receive_blind_transfer(wallet, balance["receipt"], opt_from, balance["description"], to_temp=is_temp)
         except:
             if throw:
                 raise
@@ -279,7 +282,7 @@ def gen_blind_outputs(base_outputs, asset_id, debug_priv=None):
 def gen_receipt(from_key, to_key, one_time_key,
                 blind_factor, commitment, secret512,
                 amount_int, asset_id,
-                control_authority):
+                control_authority, description=""):
 
     secretHEX = _hex(secret512)
 
@@ -314,7 +317,7 @@ def gen_receipt(from_key, to_key, one_time_key,
         "one_time_key"   : str(conf.data["one_time_key"]),
         "blinding_factor": str(memo.data["blinding_factor"]),
         "used"           : False,
-        "description": "",
+        "description": description,
     }
 
     return balance
@@ -371,12 +374,15 @@ def open_receipt(wallet, confirmation_receipt, description=""):
     return balance, child_priv_key
 
 
-def receive_blind_transfer(wallet, confirmation_receipt, opt_from="", opt_memo=""):
+def receive_blind_transfer(wallet, confirmation_receipt, opt_from="", opt_memo="", to_temp=False):
     log.info("Attempting to receive blind transfer %s" % (confirmation_receipt))
     # for a good measure
     print("Attempting to receive blind transfer %s" % (confirmation_receipt))
 
     balance, child_priv_key = open_receipt(wallet, confirmation_receipt, opt_memo)
+
+    if to_temp:
+        balance["to"] = None
 
     child_wif = str(child_priv_key)
 
@@ -460,12 +466,8 @@ def transfer_from_blind(bitshares_instance,
         confirm["trx"] = confirm["trx"].sign()
         confirm["trx"].broadcast()
 
-    if (broadcast and len(confirm["balances"]) == 2):
-        change_balance = confirm["balances"][0]
-        try:
-            receive_blind_transfer(wallet, change_balance["receipt"], from_blind_account_key_or_label, "change @" + to_account["name"])
-        except:
-            pass
+        try_to_receive_blind_transfer(wallet, confirm['balances'], from_blind_account_key_or_label, to_temp=True)
+        refresh_blind_balances(wallet, confirm['inputs'], storeback=True)
 
     return confirm
 
@@ -664,7 +666,7 @@ def blind_transfer_help( bitshares_instance,
         balance = gen_receipt(
             from_key, from_key, one_time_key,
             change_blind_factor, change_out["commitment"], from_secret512,
-            change, asset_obj["id"], change_out["owner"])
+            change, asset_obj["id"], change_out["owner"], description="change")
 
         change_out["commitment"] = _hex(change_out["commitment"])
 
@@ -716,6 +718,7 @@ def blind_transfer_help( bitshares_instance,
         blconfirm["trx"].broadcast()
 
         try_to_receive_blind_transfers(wallet, blconfirm["balances"], from_key_or_label)
+        refresh_blind_balances(wallet, blconfirm["inputs"], storeback=True)
 
     return blconfirm
 
