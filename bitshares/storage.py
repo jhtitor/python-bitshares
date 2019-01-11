@@ -140,6 +140,7 @@ class SqliteBlindHistoryStore(
         "graphene_json": [
             "control_authority",
             "blinding_factor",
+            "description",
         ]
     }
 
@@ -172,7 +173,8 @@ class SqliteBlindHistoryStore(
     def getEntriesBy(self, column_value_pairs, glue_and=True):
         """ Returns all entries stored in the database
         """
-        sql = ("SELECT * from %s WHERE " % self.__tablename__)
+        sql = ("SELECT "+ str.join(",", self.__columns__) +
+               " from %s WHERE " % self.__tablename__)
         data = [ ]
         sep = ""
         for column, value in column_value_pairs:
@@ -185,7 +187,9 @@ class SqliteBlindHistoryStore(
         return self.sql_todict(self.__columns__, rows, self.__jsonmerge__)
 
     def getEntry(self, commitment):
-        query = (("SELECT * from %s " % self.__tablename__) +
+        query = (
+            "SELECT " + str.join(",", self.__columns__) +
+            " from %s " % self.__tablename__ +
             "WHERE commitment=?",
             (commitment,)
         )
